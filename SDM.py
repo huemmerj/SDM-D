@@ -26,6 +26,7 @@ def parse_opt(known=False):
     parser.add_argument('--save_json', type=bool, default=False, required = False,  help='Whether to save json')
     parser.add_argument('--box_visual', type=bool, default=False, required = False,  help='Whether to visual results')
     parser.add_argument('--mask_color_visual', type=bool, default=False, required = False,  help='Whether to visual mask results with color')
+    parser.add_argument('--device', type=str, default=None, required = False, help="Device to run on: 'cpu' or 'cuda'. If not set, auto-detects.")
     return parser.parse_args()
 
 
@@ -50,16 +51,37 @@ def main():
     create_output_folders(out_folder)
     texts, labels, label_dict = load_descriptions(opt.des_file)  
 
-    # Init openCLIP model
-    torch.cuda.set_device(0)
-    clip_model, _, clip_preprocessor = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
-    torch.autocast(device_type="cuda", dtype=torch.bfloat16).__enter__()
-    if torch.cuda.get_device_properties(0).major >= 8:
-        torch.backends.cuda.matmul.allow_tf32 = True
-        torch.backends.cudnn.allow_tf32 = True
+    # Determine device (allow override via --device)
+    device_str = opt.device if opt.device is not None else ('cuda' if torch.cuda.is_available() else 'cpu')
+    device = torch.device(device_str)
+    print(f"Using device: {device}")
 
-    # Init SAM2 model    
-    sam2 = build_sam2(opt.model_cfg, opt.sam2_checkpoint, device='cuda', apply_postprocessing=False)
+    # Init openCLIP model
+    clip_model, _, clip_preprocessor = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
+    try:
+        clip_model = clip_model.to(device)
+    except Exception:
+        # Some older open_clip models may not accept .to; ignore if already on correct device
+        pass
+
+    # Enable CUDA-specific optimizations only when running on CUDA
+    autocast_ctx = None
+    if device.type == 'cuda' and torch.cuda.is_available():
+        if torch.cuda.device_count() > 0:
+            torch.cuda.set_device(0)
+        autocast_ctx = torch.autocast(device_type="cuda", dtype=torch.bfloat16)
+        autocast_ctx.__enter__()
+        try:
+            if torch.cuda.get_device_properties(0).major >= 8:
+                torch.backends.cuda.matmul.allow_tf32 = True
+                torch.backends.cudnn.allow_tf32 = True
+        except Exception:
+            # ignore if cuda props not available
+            pass
+
+    # Init SAM2 model
+    # build_sam2 accepts a torch.device or string; pass the device so model is moved correctly
+    sam2 = build_sam2(opt.model_cfg, opt.sam2_checkpoint, device=device, apply_postprocessing=False)
     mask_generator = SAM2AutomaticMaskGenerator(sam2, points_per_side=32, min_mask_region_area=50)
 
     print(f'Your enable_mask_nms is {opt.enable_mask_nms} !')
