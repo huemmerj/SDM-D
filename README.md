@@ -1,8 +1,6 @@
 # Learn from Foundation Model: Fruit Detection Model without Manual Annotation
+
 ## Segmentation-Description-Matching-Distilling
-
-
-
 
 [![Project](https://img.shields.io/static/v1?label=Project&message=Github&color=blue)](https://github.com/AgRoboticsResearch/SDM-D.git) [![Dataset](https://img.shields.io/static/v1?label=Dataset&message=Kaggle&color=green)](https://www.kaggle.com/datasets/mmwang0/megafruits)
 [![Colab](https://img.shields.io/static/v1?label=Demo&message=Colab&color=orange)](https://colab.research.google.com/drive/1tmgaogh9VjGp4sJnBMcUSyKrMfcuqwDw?usp=drive_link)
@@ -12,10 +10,13 @@
 **🍄Segmentation-Description-Matching-Distilling** is a framework designed to distill small models that enable panoramic perception of complex agricultural scenes from foundation models without relying on manual labels. At its core is SDM, which operates without pre-training or significant resource consumption, within a segment-then-prompt paradigm. SDM demonstrates strong zero-shot performance across various fruit detection tasks (object detection, semantic segmentation, and instance segmentation), consistently outperforming SOTA OVD methods across various fruit perception tasks, demonstrating superior dexterity and generality.
 
 ## 🔥Colab try
+
 We provide a Google's Colab example [![Colab](https://img.shields.io/static/v1?label=Demo&message=Colab&color=orange)](https://colab.research.google.com/drive/1tmgaogh9VjGp4sJnBMcUSyKrMfcuqwDw?usp=drive_link), where anyone can use our project quickly and easily.
 
 ## 🍇Installation
+
 ### 1. Prepare the environment
+
 First, install PyTorch suitable for your machine, as well as small additional dependencies, and then install this repo as a Python package. On a CUDA GPU machine, the following will do the trick:
 
 ```bash
@@ -28,6 +29,7 @@ pip install -r requirements.txt
 ```
 
 ### 2. Install Segment-Anything-2 model
+
 Please install the Segment-Anything-2 model first.
 
 ```bash
@@ -37,7 +39,9 @@ pip install -e .
 ```
 
 ### 3. Install OpenCLIP
+
 Please install OpenCLIP.
+
 ```bash
 pip install open_clip_torch
 ```
@@ -46,7 +50,7 @@ pip install open_clip_torch
 
 ### Download Checkpoints
 
-1) First, we need to download the model weight file to the `./checkpoint` folder. All the model checkpoints can be downloaded by running:
+1. First, we need to download the model weight file to the `./checkpoint` folder. All the model checkpoints can be downloaded by running:
 
 ```bash
 cd checkpoints
@@ -55,7 +59,7 @@ cd checkpoints
 
 The model in SDM is: [sam2_hiera_large.pt](https://dl.fbaipublicfiles.com/segment_anything_2/072824/sam2_hiera_large.pt), you can also download this only.
 
-2) The OpenCLIP can be utilized with `open_clip.create_model_and_transforms`,  and the model name and corresponding pretrained keys are compatible with the outputs of open_clip.list_pretrained().
+2. The OpenCLIP can be utilized with `open_clip.create_model_and_transforms`, and the model name and corresponding pretrained keys are compatible with the outputs of open_clip.list_pretrained().
 
 ```bash
 import open_clip
@@ -65,10 +69,10 @@ model, _, preprocess = open_clip.create_model_and_transforms('ViT-B-32', pretrai
 
 ### Label prediction
 
-
-(1) Our project is very easy to use, just need to run SDM.py. 
+(1) Our project is very easy to use, just need to run SDM.py.
 
 First, please put `your dataset` into `./Images` folder, there is an example (image.jpg is also okay):
+
 ```bash
 Images/
 ├── your_dataset_name/
@@ -92,27 +96,33 @@ cd SDM-D
 python SDM.py --image_folder /path/to/images --out_folder /path/to/output --des_file /path/to/prompt.txt
 
 ```
+
 In the last, the structure of the `output` folder is as follows:
+
 ```bash
 output/
 │── mask/  # mask of the instance segmentation task
 │── labels/  # label of the instance segmentation task in YOLO format
-│── mask_idx_visual/ # visual the mask ids 
+│── mask_idx_visual/ # visual the mask ids
 │── mask_color_visual/  # visual masks with color [need to set, see follows (2)]
 │── label_box_visual/  # visual detection boxed of masks [need to set, see follows (3)]
 │── json/  # json of the instance segmentation task [need to set, see follows (4)]
 ```
+
 (2) If you want to get colorful visual results, you need to set the `mask_color_visual` as `Ture`. The visual results will be saved in `out_folder/mask_color_visual` folder.
 
 ```bash
 python SDM.py --image_folder /path/to/images --out_folder /path/to/output --des_file /path/to/prompt.txt --mask_color_visual True
 ```
+
 ![SDM-D architecture](./asset/mask_visual.png)
 
 (3) If you want to visual the detection boxes, you need to set `'--box_visual'` as `True` or run:
+
 ```bash
 python SDM.py --image_folder /path/to/images --out_folder /path/to/output --des_file /path/to/prompt.txt --box_visual True
 ```
+
 (4) If you want to see the detail of masks, you can save their `.josn` file by set the `'--save_json'` as `True`:
 
 ```bash
@@ -120,7 +130,6 @@ python SDM.py --image_folder /path/to/images --out_folder /path/to/output --des_
 ```
 
 (5) If you want to explore parameters that fit your own dataset, you can try `../notebook/SDM.ipynb`.
-
 
 ### Label conversion
 
@@ -141,7 +150,7 @@ python ../seg2label/seg2semantic.py
 ```bash
 python ../seg2label/abstract.py
 ```
-    
+
 ### The design of description texts
 
 The design of prompts greatly affects the model performance, particularly in tasks involving fine-grained distinctions. We summarize an effective prompt template: `a/an {color} {shape} {object} with {feature}`, where the color description is the most crucial. Here is some examples of the prompt design:
@@ -159,14 +168,13 @@ These pseudo-labels generated by SDM can serve as supervision for small, edge-de
 
 ### Model Description
 
-
 #### Comparison of Inference Time and GPU Memory Allocation for Each Method
 
-|     | **Grounded SAM** | **YOLO-World** | **SDM** | **SDM-D (YOLOv8s)** |
-|-------------------------|------------------|----------------|---------|---------------------|
-|Inference Time (ms)| 8,090.81         | 99.32         | 7,615.08         | **18.96**         |
-| **GPU Memory Allocation (MiB)** | 7,602         | 2,268         | 6,650         | **878**         |
-|                                                                  |
+|                                 | **Grounded SAM** | **YOLO-World** | **SDM**  | **SDM-D (YOLOv8s)** |
+| ------------------------------- | ---------------- | -------------- | -------- | ------------------- |
+| Inference Time (ms)             | 8,090.81         | 99.32          | 7,615.08 | **18.96**           |
+| **GPU Memory Allocation (MiB)** | 7,602            | 2,268          | 6,650    | **878**             |
+|                                 |
 
 ## 📖Dataset
 
@@ -176,4 +184,3 @@ We introduce a high-quality, comprehensive fruit instance segmentation dataset n
 
 - [SAM 2](https://github.com/facebookresearch/sam2.git)
 - [OpenCLIP](https://github.com/mlfoundations/open_clip.git)
-
